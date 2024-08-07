@@ -35,6 +35,7 @@ class KafkaConsumer:
         # Broker properties
         self.broker_properties = {
             "bootstrap.servers" : "localhost:9092",
+            "auto.offset.reset": "earliest",
             "group.id" : "my-consumer-group",
         }
         
@@ -77,20 +78,21 @@ class KafkaConsumer:
         Poll messages from kafka topic
         :return: 1 if message was received else 0
         """
-        message = self.consumer.poll(1.0)
-        if message is None:
-            logger.info("No message received by consumer.")
-            return 0
-        elif message.error() is not None:
-            logger.debug(f"error from consumer {message.error()}")
-            return 0
-        else:
-            try:
-                logger.info(message.value())
-                return 1
-            except KeyError as e:
-                logger.info(f"Failed to unpack message {e}")
+        try:
+            msg = self.consumer.poll(timeout=1.0)
+            if msg is not None:
+                if msg.error() is not None:
+                    self.message_handler(msg)
+                    return 1
+                else:
+                    logger.error(msg.error())
+                    return 0
+            else:
+                logger.debug("no message")
                 return 0
+        except SerializerError as error:
+            logger.error(f"Error consuming data: {error.message}")
+            return 0
 
 
     def close(self):

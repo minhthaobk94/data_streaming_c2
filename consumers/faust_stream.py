@@ -71,7 +71,7 @@ async def StationProcess(stations):
                                                 order=station.order,
                                                 line=transformed_line
                                                 )
-        await out_topic.send(value=transformed_station)
+        table[station.station_id] = transformed_station
     
 
 if __name__ == "__main__":
