@@ -14,7 +14,17 @@ class Weather:
         self.status = "sunny"
 
     def process_message(self, message):
-        """Handles incoming weather data"""
-        message_value = message.value()
-        self.temperature = message_value['temperature']
-        self.status = message_value['status']
+        """
+        Handles incoming weather data
+        :param message: message to process
+        :return:
+        """
+        logger.info("Processing weather message")
+
+        # Process incoming weather messages.
+        try:
+            value = json.loads(message.value())
+            self.temperature = value.get("temperature")
+            self.status = value.get("status")
+        except Exception as e:
+                logger.debug("bad weather message received")

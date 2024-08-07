@@ -29,37 +29,50 @@ class TransformedStation(faust.Record):
     line: str
 
 
-#   places it into a new topic with only the necessary information.
+#  Faust Stream that ingests data from the Kafka Connect stations topic and places it into a new topic with only the necessary information.
 app = faust.App("stations-stream", broker="kafka://localhost:9092", store="memory://")
-topic = app.topic("stations_conn", value_type=Station)
-out_topic = app.topic("faust_stations_conn_table", partitions=1)
+
+# Input Topic
+topic = app.topic("jdbc.stations", value_type=Station)
+
+
+# Output Topics
+out_topic = app.topic("faust.stations.transformed", partitions=1, value_type=TransformedStation)
 
 table = app.Table(
-   "faust_stations_conn_table",
-   default=TransformedStation,
-   partitions=1,
-   changelog_topic=out_topic,
+    "stations.transformation.table",
+    default=int,
+    partitions=1,
+    changelog_topic=out_topic,
 )
 
+
+# Using Faust, transforming input `Station` records into `TransformedStation` records.
+# Example : If the `Station` record has the field `red` set to true, then set the `line` of the `TransformedStation` record to the string `"red"`
+
 @app.agent(topic)
-async def process_stations(sts):
-
-    async for s in sts:
-        if s.blue:
-            l = 'blue'
-        elif s.red:
-            l = 'red'
-        elif s.green:
-            l = 'green'
+async def StationProcess(stations):
+    
+    async for station in stations:
+        
+        transformed_line = ""
+        if(station.red == True):
+            transformed_line = "red"
+        elif(station.blue == True):
+            transformed_line = "blue"
+        elif(station.green == True):
+            transformed_line = "green"
         else:
-            l = ''
-
-        table[s.station_id] = TransformedStation(
-            line=l,
-            order=s.order,
-            station_id=s.station_id,
-            station_name=s.station_name             
-        )
+            transformed_line = "null"
+        
+        transformed_station = TransformedStation(
+                                                station_id=station.station_id,
+                                                station_name=station.station_name,
+                                                order=station.order,
+                                                line=transformed_line
+                                                )
+        await out_topic.send(value=transformed_station)
+    
 
 if __name__ == "__main__":
     app.main()
